@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  # Valio Aimo Gateway & Wholesaler Monitoring Tower (Port 8000)
+  aimogate-wholesaler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: aimogate_wholesaler
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - HOST=0.0.0.0
+      - VALIO_API_BASE_URL=https://junction26.valioaimo.fi
+      - WEB_API_KEY=junct_tDnQn4VI_nfhELGCOEkY4vbuxm324MmYmILuokYG03Y
+    volumes:
+      - aimogate_data:/app/data
+
+  # Buyer Procurement Desk (Port 3000)
+  buyer-portal:
+    image: node:20-alpine
+    container_name: buyer_portal
+    working_dir: /app/frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app/frontend
+    command: sh -c "npm install && npx vite --host 0.0.0.0 --port 3000"
+    environment:
+      - VITE_API_URL=http://aimogate-wholesaler:8000
+
+volumes:
+  aimogate_data:
