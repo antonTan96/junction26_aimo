@@ -85,11 +85,31 @@ class Order(Base):
     total_eur = Column(Numeric(10, 2), nullable=False)
     violation_reasons = Column(JSON, nullable=True)
     approved_by = Column(String(128), nullable=True)
+    approval_type = Column(String(32), nullable=False, default="AUTO")  # 'AUTO', 'ONE_TIME', 'RECURRENT_WINDOW'
+    recurrent_grant_id = Column(String(32), nullable=True)
     created_at = Column(DateTime, nullable=False, default=datetime.datetime.utcnow)
 
     __table_args__ = (
         UniqueConstraint("tenant_id", "po_reference", name="uq_tenant_po"),
     )
+
+class RecurrentApprovalGrant(Base):
+    __tablename__ = "recurrent_approval_grants"
+
+    grant_id = Column(String(32), primary_key=True, index=True)  # e.g. RAG-4F9A2B1C
+    tenant_id = Column(String(64), nullable=False, index=True)
+    category = Column(String(64), nullable=False)  # e.g. "dairy" or "*"
+    sku = Column(String(32), nullable=True)  # Specific SKU or None for category-wide
+    frequency = Column(String(32), nullable=False, default="WEEKLY")  # DAILY, WEEKLY, MONTHLY
+    window_days = Column(Integer, nullable=False, default=7)
+    max_budget_per_period_eur = Column(Numeric(10, 2), nullable=False, default=2000.00)
+    current_period_spent_eur = Column(Numeric(10, 2), nullable=False, default=0.00)
+    valid_from = Column(DateTime, nullable=False, default=datetime.datetime.utcnow)
+    valid_until = Column(DateTime, nullable=False)
+    status = Column(String(32), nullable=False, default="ACTIVE")  # ACTIVE, EXPIRED, REVOKED
+    approved_by = Column(String(128), nullable=False)
+    notes = Column(String(256), nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.datetime.utcnow)
 
 class AuditLog(Base):
     __tablename__ = "audit_logs"

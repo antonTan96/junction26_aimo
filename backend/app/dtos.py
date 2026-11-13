@@ -64,10 +64,50 @@ class OrderDTO(BaseModel):
     total_eur: float
     violation_reasons: Optional[List[str]] = None
     approved_by: Optional[str] = None
+    approval_type: Optional[str] = "AUTO"  # AUTO, ONE_TIME, RECURRENT_WINDOW
+    recurrent_grant_id: Optional[str] = None
     created_at: datetime.datetime
     sku: Optional[str] = None
     pack_quantity: Optional[int] = None
     total_litres: Optional[float] = None
+
+# --- Approval Requests & Recurrent Grants ---
+class OrderApprovalRequest(BaseModel):
+    approval_type: str = Field(default="ONE_TIME", description="'ONE_TIME' or 'RECURRENT_WINDOW'")
+    window_days: int = Field(default=7, description="Number of days the recurrent window remains valid")
+    frequency: str = Field(default="WEEKLY", description="'DAILY', 'WEEKLY', 'MONTHLY'")
+    recurrent_budget_eur: Optional[float] = Field(default=None, description="Max budget cap for recurrent period")
+    notes: Optional[str] = Field(default=None, description="Optional sign-off notes or audit comment")
+
+class RecurrentGrantDTO(BaseModel):
+    grant_id: str
+    tenant_id: str
+    category: str
+    sku: Optional[str] = None
+    frequency: str
+    window_days: int
+    max_budget_per_period_eur: float
+    current_period_spent_eur: float
+    valid_from: datetime.datetime
+    valid_until: datetime.datetime
+    status: str  # ACTIVE, EXPIRED, REVOKED
+    approved_by: str
+    notes: Optional[str] = None
+    created_at: datetime.datetime
+    is_valid: bool = True
+    days_remaining: int = 0
+
+class GuardrailWhitelistDTO(BaseModel):
+    tenant_id: str
+    tenant_name: str
+    allowed_categories: List[str]
+    all_system_categories: List[str]
+    restricted_categories: List[str]
+    max_auto_approve_eur: float
+    active_grants_count: int
+
+class GuardrailWhitelistUpdateDTO(BaseModel):
+    allowed_categories: List[str]
 
 # --- Policy Management ---
 class PolicyUpdateDTO(BaseModel):

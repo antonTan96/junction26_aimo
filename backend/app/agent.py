@@ -20,21 +20,28 @@ from .dtos import (
 from .routes.tools import search_offers, lock_quote, commit_order
 
 def parse_buyer_prompt(prompt: str) -> Dict[str, Any]:
-    """Extract volume in litres, delivery timeframe, and product keywords from natural language"""
+    """Extract volume/units, delivery timeframe, and category/product keywords from natural language"""
     text = prompt.lower()
     
-    # 1. Volume extraction (e.g. 1000 litres, 1,000L, 400 l, 1000.0)
+    # 1. Volume or Quantity extraction (e.g. 1000 litres, 1,000L, 50 boxes, 20 packs)
     vol_match = re.search(r'([\d,]+(?:\.\d+)?)\s*(?:l|litres|liter|liters)\b', text)
+    qty_match = re.search(r'([\d,]+)\s*(?:boxes|box|canisters|canister|packs|pack|units|croissants)\b', text)
     if vol_match:
         vol_str = vol_match.group(1).replace(',', '')
         volume_litres = float(vol_str)
+    elif qty_match:
+        qty_str = qty_match.group(1).replace(',', '')
+        volume_litres = float(qty_str) * 3.25
     else:
-        # Default to 1000 if not specified
         volume_litres = 1000.0
 
-    # 2. Dietary / Product query
+    # 2. Dietary / Product & Category query
     query = "lactose-free milk"
-    if "oat" in text:
+    if "croissant" in text or "bakery" in text:
+        query = "croissant"
+    elif "sanitizer" in text or "hygiene" in text or "clean" in text:
+        query = "sanitizer"
+    elif "oat" in text:
         query = "oat"
     elif "dairy" in text or "milk" in text:
         query = "lactose-free milk"
@@ -87,7 +94,7 @@ def run_agent_workflow(
     # Step 2: Tool Call -> search_offers (Local Catalog or Live junction26.valioaimo.fi)
     search_payload = SearchOffersRequest(
         query=target_query,
-        attributes=["lactose-free"],
+        attributes=["lactose-free"] if ("lactose" in prompt.lower() or "free" in prompt.lower()) else [],
         required_volume_litres=target_vol,
         deliver_by=target_date
     )
@@ -219,19 +226,33 @@ def run_agent_workflow(
 
     # Step 6: Policy Decision & Synthesis
     if order_res.status == "CONFIRMED":
-        summary = (
-            f"Order {order_res.order_id} AUTO-APPROVED by AimoGate. "
-            f"Total €{order_res.total_eur:,.2f} is within the autonomous spend threshold. "
-            f"Stock permanently allocated for delivery by {target_date.strftime('%Y-%m-%d')}."
-        )
+        if order_res.approval_type == "RECURRENT_WINDOW":
+            summary = (
+                f"Order {order_res.order_id} AUTO-APPROVED under Active Time-Windowed Recurrent Grant ({order_res.recurrent_grant_id}). "
+                f"Total €{order_res.total_eur:,.2f} is within standing recurrent allocation. "
+                f"Zero human latency. Stock committed for delivery by {target_date.strftime('%Y-%m-%d')}."
+            )
+        else:
+            summary = (
+                f"Order {order_res.order_id} AUTO-APPROVED by AimoGate. "
+                f"Total €{order_res.total_eur:,.2f} is within autonomous spend threshold. "
+                f"Stock permanently allocated for delivery by {target_date.strftime('%Y-%m-%d')}."
+            )
         final_status = "CONFIRMED"
     else:
         violation_str = "; ".join(order_res.violation_reasons or ["Policy limit exceeded"])
-        summary = (
-            f"Order {order_res.order_id} HELD by Policy Firewall: {violation_str}. "
-            f"Stock ({best_offer.packs_required} packs / {best_offer.delivered_volume_litres}L) is safely locked under {quote_res.quote_id}. "
-            f"Approval card automatically dispatched to Human F&B Manager inbox."
-        )
+        if any("GUARDRAIL BLOCKED" in v for v in (order_res.violation_reasons or [])):
+            summary = (
+                f"Order {order_res.order_id} HELD by Whitelist Category Guardrail: {violation_str}. "
+                f"Client is not whitelisted for this product category. Stock ({best_offer.packs_required} packs) is safely locked. "
+                f"Wholesaler Tower administrator sign-off or category whitelist addition required."
+            )
+        else:
+            summary = (
+                f"Order {order_res.order_id} HELD by Policy Firewall: {violation_str}. "
+                f"Stock ({best_offer.packs_required} packs / {best_offer.delivered_volume_litres}L) is safely locked under {quote_res.quote_id}. "
+                f"Approval card automatically dispatched to Human F&B Manager inbox."
+            )
         final_status = "PENDING_APPROVAL"
 
     traces.append(AgentStepTrace(

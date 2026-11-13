@@ -287,7 +287,7 @@ def commit_order(
     policy = db.query(TenantPolicy).filter(TenantPolicy.tenant_id == tenant_id).first()
     product = db.query(Product).filter(Product.sku == quote.sku).first()
 
-    passes, violations = PolicyEngine.evaluate(policy, product, quote)
+    passes, violations, matching_grant = PolicyEngine.evaluate(policy, product, quote, db=db)
 
     order_id = f"ORD-{uuid.uuid4().hex[:8].upper()}"
 
@@ -299,9 +299,22 @@ def commit_order(
         if stock_rec:
             stock_rec.reserved_packs -= quote.pack_quantity
 
-        action = "AUTO_APPROVED"
+        if matching_grant:
+            approval_type = "RECURRENT_WINDOW"
+            recurrent_grant_id = matching_grant.grant_id
+            matching_grant.current_period_spent_eur = float(matching_grant.current_period_spent_eur) + float(quote.locked_total_eur)
+            approved_by = f"AimoGate-PolicyEngine [Recurrent Grant: {matching_grant.grant_id} (Valid until {matching_grant.valid_until.strftime('%b %d')})]"
+            action = "AUTO_APPROVED_RECURRENT"
+        else:
+            approval_type = "AUTO"
+            recurrent_grant_id = None
+            approved_by = "AimoGate-PolicyEngine"
+            action = "AUTO_APPROVED"
     else:
         order_status = "PENDING_APPROVAL"
+        approval_type = "PENDING"
+        recurrent_grant_id = None
+        approved_by = None
         # Stock remains reserved in warehouse_stock
         action = "POLICY_HELD"
 
@@ -313,7 +326,9 @@ def commit_order(
         status=order_status,
         total_eur=quote.locked_total_eur,
         violation_reasons=violations if not passes else None,
-        approved_by="AimoGate-PolicyEngine" if passes else None,
+        approved_by=approved_by,
+        approval_type=approval_type,
+        recurrent_grant_id=recurrent_grant_id,
         created_at=now
     )
     db.add(order)
@@ -330,6 +345,8 @@ def commit_order(
             "po_reference": payload.po_reference,
             "total_eur": float(quote.locked_total_eur),
             "status": order_status,
+            "approval_type": approval_type,
+            "recurrent_grant_id": recurrent_grant_id,
             "violations": violations
         }
     )
@@ -345,6 +362,8 @@ def commit_order(
         total_eur=float(order.total_eur),
         violation_reasons=order.violation_reasons,
         approved_by=order.approved_by,
+        approval_type=order.approval_type,
+        recurrent_grant_id=order.recurrent_grant_id,
         created_at=order.created_at,
         sku=quote.sku,
         pack_quantity=quote.pack_quantity,
