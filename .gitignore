@@ -1,0 +1,16 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+*.db
+*.sqlite3
+
+# Node / Frontend
+frontend/node_modules/
+.DS_Store
+
+# Keys & Secrets
+# (keys.sh can be tracked if user placed it, but let's not commit any runtime token dumps)
