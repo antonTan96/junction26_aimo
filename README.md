@@ -56,28 +56,30 @@ PYTHONPATH=. pytest backend/tests/ -v
 
 ---
 
-## 3. Quickstart & Demo Setup
+## 3. Quickstart & Dual-Port Setup
 
-### Prerequisites
-- Python 3.10+
-- Node.js 18+ (Node 26 installed)
+AimoGate runs as two distinct portals hosted on separate ports:
 
-### 1. Install & Activate Backend Environment
+1. **Port 3000 — Buyer Procurement Portal** ([http://localhost:3000](http://localhost:3000)):
+   - Owned by the Buyer (Hotel & Restaurant Procurement Team).
+   - Configure autonomous spend limits, trigger procurement agents, review execution traces, and execute/reject held orders.
+2. **Port 8000 — AimoGate Wholesaler Monitoring Tower & API** ([http://localhost:8000](http://localhost:8000)):
+   - Owned by Valio Aimo (Wholesaler Gateway Boundary).
+   - Monitors multiple customer agents in real time, tracks cold-chain reservations (15-min TTL), enforces zero-trust ERP isolation, and exposes the REST/MCP protocol endpoints.
+
+### Starting the Applications
+
 ```bash
+# Terminal 1: Start Backend & Wholesaler Tower (Port 8000)
 source .venv/bin/activate
-pip install -r <(pip freeze)
-```
-
-### 2. Start the Gateway & Control Plane UI
-```bash
-# Starts both the FastAPI REST/MCP backend and the built React Control Plane on port 8000
 python3 -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8000
-```
-Open **[http://localhost:8000](http://localhost:8000)** in your browser.
 
-*(Optional: For live frontend development with Hot-Module-Reload)*
-```bash
+# Terminal 2: Start Buyer Procurement Portal (Port 3000)
 cd frontend
+npm run dev
+```
+
+*Open both browser windows side-by-side to watch the real-time cross-network workflow!*
 npm run dev
 # Vite runs at http://localhost:3000 and proxies /api to http://localhost:8000
 ```

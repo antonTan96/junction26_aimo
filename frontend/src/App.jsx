@@ -33,8 +33,11 @@ import {
 const API_BASE = '/api/v1';
 
 export default function App() {
-  // Navigation: 'buyer' (Buyer Portal) | 'aimogate' (AimoGate Monitoring Dashboard)
-  const [activePortal, setActivePortal] = useState('buyer');
+  // Port Detection: Port 3000 = Buyer Portal, Port 8000 = AimoGate Wholesaler Tower
+  const currentPort = typeof window !== 'undefined' ? window.location.port : '3000';
+  const isPort8000 = currentPort === '8000';
+  const initialPortal = isPort8000 ? 'aimogate' : 'buyer';
+  const [activePortal, setActivePortal] = useState(initialPortal);
 
   // Customer / Tenant Selection
   const [selectedTenant, setSelectedTenant] = useState('hotel_nordic_group');
@@ -361,6 +364,28 @@ export default function App() {
                 </select>
               </div>
             )}
+
+            {/* External Port Cross-Link */}
+            <a
+              href={activePortal === 'buyer' ? 'http://localhost:8000' : 'http://localhost:3000'}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={
+                activePortal === 'buyer'
+                  ? 'Open Valio Aimo Wholesaler Monitoring Dashboard on Port 8000'
+                  : 'Open Customer Buyer Portal on Port 3000'
+              }
+              className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border transition ${
+                activePortal === 'buyer'
+                  ? 'bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border-indigo-500/30'
+                  : 'bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 border-blue-500/30'
+              }`}
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              <span>
+                {activePortal === 'buyer' ? 'Wholesaler Tower (Port 8000)' : 'Buyer Portal (Port 3000)'}
+              </span>
+            </a>
 
             {/* Live Upstream Status */}
             <div className="hidden md:flex items-center gap-1.5 text-xs bg-emerald-950/40 border border-emerald-500/30 px-2.5 py-1 rounded-lg text-emerald-300">
