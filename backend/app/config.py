@@ -18,6 +18,10 @@ class Settings(BaseModel):
     DEFAULT_TENANT_ID: str = "hotel_nordic_group"
     DEFAULT_TENANT_NAME: str = "Nordic Crown Hotels"
     
+    # Valio Aimo Live Backend
+    VALIO_API_BASE_URL: str = os.getenv("VALIO_API_BASE_URL", "https://junction26.valioaimo.fi")
+    VALIO_API_KEY: str = os.getenv("VALIO_API_KEY", os.getenv("WEB_API_KEY", "junct_tDnQn4VI_nfhELGCOEkY4vbuxm324MmYmILuokYG03Y"))
+
     # LLM & Verda Cloud
     VERDA_API_KEY: str = os.getenv("WEB_API_KEY", "")
     VERDA_BASE_URL: str = os.getenv("VERDA_BASE_URL", "https://inference.verda.com/v1")

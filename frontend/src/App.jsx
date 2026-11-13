@@ -281,6 +281,11 @@ export default function App() {
               <span className="text-slate-400">Buyer Tenant:</span>
               <span className="font-medium text-slate-200">Nordic Crown Hotels (hotel_nordic_group)</span>
             </div>
+
+            <div className="hidden xl:flex items-center gap-2 text-xs bg-emerald-950/40 border border-emerald-500/30 px-3 py-1.5 rounded-lg text-emerald-300">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+              <span className="font-mono text-[11px]">Upstream: junction26.valioaimo.fi</span>
+            </div>
           </div>
 
           {/* Warehouse Stock Ticker & Quick Actions */}
@@ -375,12 +380,12 @@ export default function App() {
                 onClick={() => setAgentMode('live')}
                 className={`px-2 py-0.5 rounded text-[11px] font-medium ${
                   agentMode === 'live'
-                    ? 'bg-indigo-600 text-white'
+                    ? 'bg-emerald-600 text-white'
                     : 'text-slate-400 hover:text-slate-200'
                 }`}
-                title="Live Cloud LLM via Verda Nemotron"
+                title="Live Valio Aimo Upstream API via junction26.valioaimo.fi"
               >
-                Live Cloud
+                Live Upstream
               </button>
             </div>
           </div>

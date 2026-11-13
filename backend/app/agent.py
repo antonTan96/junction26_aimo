@@ -8,6 +8,7 @@ import httpx
 from sqlalchemy.orm import Session
 from .config import settings
 from .auth import Principal
+from .valio_client import valio_client
 from .dtos import (
     SearchOffersRequest,
     LockQuoteRequest,
@@ -82,7 +83,7 @@ def run_agent_workflow(
         tool_input={"prompt": prompt, "parsed_intent": parsed}
     ))
 
-    # Step 2: Tool Call -> search_offers
+    # Step 2: Tool Call -> search_offers (Local Catalog or Live junction26.valioaimo.fi)
     search_payload = SearchOffersRequest(
         query=target_query,
         attributes=["lactose-free"],
@@ -90,12 +91,61 @@ def run_agent_workflow(
         deliver_by=target_date
     )
     
-    offers = search_offers(payload=search_payload, db=db, principal=principal)
+    offers = []
+    source_label = "Local Catalog"
+    if mode == "live":
+        try:
+            live_offers = valio_client.get_live_offers(
+                query=target_query,
+                required_volume_litres=target_vol,
+                deliver_by=target_date
+            )
+            if live_offers:
+                offers = live_offers
+                source_label = "Live Upstream (junction26.valioaimo.fi)"
+                # Register SKUs dynamically in local database for quote locking & policy evaluation
+                from .models import Product, TenantContractPrice, WarehouseStock
+                for off in offers:
+                    p_exist = db.query(Product).filter(Product.sku == off.sku).first()
+                    if not p_exist:
+                        p_new = Product(
+                            sku=off.sku,
+                            name=off.name,
+                            category=off.category,
+                            dietary_tags=off.dietary_tags,
+                            pack_format=off.pack_format,
+                            pack_volume_litres=off.pack_volume_litres,
+                            min_lead_time_hours=24,
+                            is_active=True,
+                            internal_cost_eur=round(off.unit_contract_price_eur * 0.82, 2),
+                            internal_margin_pct=18.0,
+                            roadmap_status="LIVE"
+                        )
+                        db.add(p_new)
+                        cp_new = TenantContractPrice(
+                            tenant_id="hotel_nordic_group",
+                            sku=off.sku,
+                            contract_pack_price_eur=off.unit_contract_price_eur
+                        )
+                        db.add(cp_new)
+                        st_new = WarehouseStock(
+                            sku=off.sku,
+                            available_packs=off.available_packs,
+                            reserved_packs=0
+                        )
+                        db.add(st_new)
+                db.commit()
+        except Exception as e:
+            # Fall back to local search if remote is unreachable
+            pass
+
+    if not offers:
+        offers = search_offers(payload=search_payload, db=db, principal=principal)
     
     traces.append(AgentStepTrace(
         step_number=2,
         title="Tool Call: search_offers",
-        description=f"Retrieved {len(offers)} matching contract offers from Valio Aimo. Pack sizes normalized, internal margins securely withheld.",
+        description=f"Retrieved {len(offers)} matching contract offers from {source_label}. Pack sizes normalized, internal margins securely withheld.",
         action_type="tool_call",
         tool_name="search_offers",
         tool_input=search_payload.model_dump(),
