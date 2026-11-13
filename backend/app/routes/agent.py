@@ -21,5 +21,6 @@ def execute_buyer_agent(
         prompt=payload.prompt,
         db=db,
         mode=payload.mode,
-        po_reference=payload.po_reference
+        po_reference=payload.po_reference,
+        tenant_id=payload.tenant_id or "hotel_nordic_group"
     )

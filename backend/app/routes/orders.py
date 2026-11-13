@@ -11,13 +11,15 @@ router = APIRouter(prefix="/orders", tags=["Order Management & Human Governance"
 
 @router.get("", response_model=List[OrderDTO])
 def list_orders(
+    tenant_id: Optional[str] = None,
     status_filter: Optional[str] = None,
     db: Session = Depends(get_db),
     principal: Principal = Depends(require_principal(["agent", "human", "admin"]))
 ):
-    query = db.query(Order, QuoteLock).join(QuoteLock, QuoteLock.quote_id == Order.quote_id).filter(
-        Order.tenant_id == principal.tenant_id
-    )
+    query = db.query(Order, QuoteLock).join(QuoteLock, QuoteLock.quote_id == Order.quote_id)
+    target_tenant = tenant_id or (principal.tenant_id if principal.principal_type != "admin" else None)
+    if target_tenant:
+        query = query.filter(Order.tenant_id == target_tenant)
     if status_filter:
         query = query.filter(Order.status == status_filter.upper())
     

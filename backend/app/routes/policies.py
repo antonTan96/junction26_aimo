@@ -1,3 +1,4 @@
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from ..database import get_db
@@ -9,12 +10,14 @@ router = APIRouter(prefix="/policies", tags=["Tenant Policy Configuration"])
 
 @router.get("", response_model=TenantPolicyDTO)
 def get_policy(
+    tenant_id: Optional[str] = None,
     db: Session = Depends(get_db),
     principal: Principal = Depends(require_principal(["agent", "human", "admin"]))
 ):
-    policy = db.query(TenantPolicy).filter(TenantPolicy.tenant_id == principal.tenant_id).first()
+    target_tenant = tenant_id or principal.tenant_id
+    policy = db.query(TenantPolicy).filter(TenantPolicy.tenant_id == target_tenant).first()
     if not policy:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Policy not found.")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Policy for '{target_tenant}' not found.")
     return TenantPolicyDTO(
         tenant_id=policy.tenant_id,
         tenant_name=policy.tenant_name,
@@ -26,6 +29,7 @@ def get_policy(
 @router.patch("", response_model=TenantPolicyDTO)
 def update_policy(
     payload: PolicyUpdateDTO,
+    tenant_id: Optional[str] = None,
     db: Session = Depends(get_db),
     principal: Principal = Depends(require_principal(["human", "admin"], ["policies:update"]))
 ):
@@ -33,9 +37,10 @@ def update_policy(
     S2: Interactive Policy Threshold Slider.
     Allows judges and managers to adjust auto-approval spend limits dynamically.
     """
-    policy = db.query(TenantPolicy).filter(TenantPolicy.tenant_id == principal.tenant_id).first()
+    target_tenant = tenant_id or principal.tenant_id
+    policy = db.query(TenantPolicy).filter(TenantPolicy.tenant_id == target_tenant).first()
     if not policy:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Policy not found.")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Policy for '{target_tenant}' not found.")
 
     if payload.max_auto_approve_eur is not None:
         policy.max_auto_approve_eur = payload.max_auto_approve_eur
@@ -45,7 +50,7 @@ def update_policy(
         policy.allowed_categories = payload.allowed_categories
 
     audit = AuditLog(
-        tenant_id=principal.tenant_id,
+        tenant_id=target_tenant,
         actor_type=principal.principal_type,
         actor_id=principal.principal_id,
         action="POLICY_UPDATED",

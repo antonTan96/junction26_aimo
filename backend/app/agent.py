@@ -57,14 +57,15 @@ def run_agent_workflow(
     prompt: str,
     db: Session,
     mode: str = "deterministic",
-    po_reference: Optional[str] = None
+    po_reference: Optional[str] = None,
+    tenant_id: str = "hotel_nordic_group"
 ) -> AgentRunResponse:
     start_time = time.time()
     traces: List[AgentStepTrace] = []
     
     principal = Principal(
-        tenant_id="hotel_nordic_group",
-        principal_id="buyer_agent_nordic_01",
+        tenant_id=tenant_id or "hotel_nordic_group",
+        principal_id=f"buyer_agent_{tenant_id or 'default'}",
         principal_type="agent",
         scopes=["offers:read", "quotes:lock", "orders:submit"]
     )

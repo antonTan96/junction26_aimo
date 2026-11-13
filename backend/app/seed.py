@@ -27,15 +27,41 @@ def seed_database(db: Session):
     db.query(TenantPolicy).delete()
     db.commit()
 
-    # 1. Tenant Policy: Nordic Crown Hotels
-    policy = TenantPolicy(
-        tenant_id="hotel_nordic_group",
-        tenant_name="Nordic Crown Hotels",
-        max_auto_approve_eur=800.00,
-        max_auto_approve_litres=600.00,
-        allowed_categories=["dairy", "plant-based"],
-    )
-    db.add(policy)
+    now = datetime.datetime.utcnow()
+
+    # 1. Multiple Customer Tenants
+    policies = [
+        TenantPolicy(
+            tenant_id="hotel_nordic_group",
+            tenant_name="Nordic Crown Hotels (Helsinki)",
+            max_auto_approve_eur=800.00,
+            max_auto_approve_litres=600.00,
+            allowed_categories=["dairy", "plant-based"],
+        ),
+        TenantPolicy(
+            tenant_id="scandic_helsinki_hub",
+            tenant_name="Scandic Hotels Finland",
+            max_auto_approve_eur=1500.00,
+            max_auto_approve_litres=1200.00,
+            allowed_categories=["dairy", "bakery", "plant-based"],
+        ),
+        TenantPolicy(
+            tenant_id="sodexo_campus_espoo",
+            tenant_name="Sodexo Campus Dining (Otaniemi)",
+            max_auto_approve_eur=500.00,
+            max_auto_approve_litres=400.00,
+            allowed_categories=["dairy"],
+        ),
+        TenantPolicy(
+            tenant_id="fazer_food_services",
+            tenant_name="Fazer Food & Restaurant Services",
+            max_auto_approve_eur=2500.00,
+            max_auto_approve_litres=2000.00,
+            allowed_categories=["dairy", "plant-based", "bakery"],
+        ),
+    ]
+    for pol in policies:
+        db.add(pol)
 
     # 2. Products
     products = [
@@ -82,61 +108,111 @@ def seed_database(db: Session):
     for p in products:
         db.add(p)
 
-    # 3. Tenant Contract Prices
+    # 3. Tenant Contract Prices for All Customers
     contract_prices = [
-        TenantContractPrice(
-            tenant_id="hotel_nordic_group",
-            sku="VA-LF-MILK-10L",
-            contract_pack_price_eur=11.80,
-        ),
-        TenantContractPrice(
-            tenant_id="hotel_nordic_group",
-            sku="VA-LF-MILK-12X1L",
-            contract_pack_price_eur=15.48,
-        ),
-        TenantContractPrice(
-            tenant_id="hotel_nordic_group",
-            sku="VA-ROADMAP-Q4-PRO",
-            contract_pack_price_eur=14.00,
-        ),
+        # Nordic Crown Hotels (Standard Contract)
+        TenantContractPrice(tenant_id="hotel_nordic_group", sku="VA-LF-MILK-10L", contract_pack_price_eur=11.80),
+        TenantContractPrice(tenant_id="hotel_nordic_group", sku="VA-LF-MILK-12X1L", contract_pack_price_eur=15.48),
+        TenantContractPrice(tenant_id="hotel_nordic_group", sku="VA-ROADMAP-Q4-PRO", contract_pack_price_eur=14.00),
+
+        # Scandic Hotels (High-Volume Tier)
+        TenantContractPrice(tenant_id="scandic_helsinki_hub", sku="VA-LF-MILK-10L", contract_pack_price_eur=11.50),
+        TenantContractPrice(tenant_id="scandic_helsinki_hub", sku="VA-LF-MILK-12X1L", contract_pack_price_eur=15.10),
+
+        # Sodexo Campus Dining
+        TenantContractPrice(tenant_id="sodexo_campus_espoo", sku="VA-LF-MILK-10L", contract_pack_price_eur=12.10),
+        TenantContractPrice(tenant_id="sodexo_campus_espoo", sku="VA-LF-MILK-12X1L", contract_pack_price_eur=15.80),
+
+        # Fazer Food Services (Enterprise Tier)
+        TenantContractPrice(tenant_id="fazer_food_services", sku="VA-LF-MILK-10L", contract_pack_price_eur=11.20),
+        TenantContractPrice(tenant_id="fazer_food_services", sku="VA-LF-MILK-12X1L", contract_pack_price_eur=14.90),
     ]
     for cp in contract_prices:
         db.add(cp)
 
-    # 4. Warehouse Stock
+    # 4. Warehouse Stock (initial clean available pool)
     stocks = [
-        WarehouseStock(
-            sku="VA-LF-MILK-10L",
-            available_packs=250,
-            reserved_packs=0,
-        ),
-        WarehouseStock(
-            sku="VA-LF-MILK-12X1L",
-            available_packs=180,
-            reserved_packs=0,
-        ),
-        WarehouseStock(
-            sku="VA-ROADMAP-Q4-PRO",
-            available_packs=100,
-            reserved_packs=0,
-        ),
+        WarehouseStock(sku="VA-LF-MILK-10L", available_packs=250, reserved_packs=0),
+        WarehouseStock(sku="VA-LF-MILK-12X1L", available_packs=180, reserved_packs=0),
+        WarehouseStock(sku="VA-ROADMAP-Q4-PRO", available_packs=100, reserved_packs=0),
     ]
     for s in stocks:
         db.add(s)
 
-    # 5. Audit Log Initialization
-    init_log = AuditLog(
+    # 5. Seed historical / active multi-customer orders for the Wholesaler Control Tower
+    # Scandic: Auto-Approved Order
+    q_scandic = QuoteLock(
+        quote_id="Q-SCANDIC-001",
+        tenant_id="scandic_helsinki_hub",
+        sku="VA-LF-MILK-10L",
+        pack_quantity=50,
+        total_litres=500.0,
+        locked_total_eur=575.00,
+        deliver_by=now + datetime.timedelta(days=2),
+        status="CONSUMED",
+        expires_at=now + datetime.timedelta(minutes=15),
+        created_at=now - datetime.timedelta(hours=3)
+    )
+    db.add(q_scandic)
+    ord_scandic = Order(
+        order_id="ORD-SCANDIC-101",
+        quote_id="Q-SCANDIC-001",
+        tenant_id="scandic_helsinki_hub",
+        po_reference="PO-SCANDIC-2026-089",
+        status="CONFIRMED",
+        total_eur=575.00,
+        approved_by="AimoGate-PolicyEngine (Auto-Approved < €1,500)",
+        created_at=now - datetime.timedelta(hours=3)
+    )
+    db.add(ord_scandic)
+
+    # Fazer: Auto-Approved Order
+    q_fazer = QuoteLock(
+        quote_id="Q-FAZER-001",
+        tenant_id="fazer_food_services",
+        sku="VA-LF-MILK-10L",
+        pack_quantity=120,
+        total_litres=1200.0,
+        locked_total_eur=1344.00,
+        deliver_by=now + datetime.timedelta(days=1),
+        status="CONSUMED",
+        expires_at=now + datetime.timedelta(minutes=15),
+        created_at=now - datetime.timedelta(hours=1)
+    )
+    db.add(q_fazer)
+    ord_fazer = Order(
+        order_id="ORD-FAZER-808",
+        quote_id="Q-FAZER-001",
+        tenant_id="fazer_food_services",
+        po_reference="PO-FAZER-2026-551",
+        status="CONFIRMED",
+        total_eur=1344.00,
+        approved_by="AimoGate-PolicyEngine (Auto-Approved < €2,500)",
+        created_at=now - datetime.timedelta(hours=1)
+    )
+    db.add(ord_fazer)
+
+    # Audit Logs
+    db.add(AuditLog(
+        tenant_id="scandic_helsinki_hub",
+        actor_type="agent",
+        actor_id="scandic_procure_bot",
+        action="AUTO_APPROVED",
+        payload_summary={"order_id": "ORD-SCANDIC-101", "total_eur": 575.00}
+    ))
+    db.add(AuditLog(
+        tenant_id="fazer_food_services",
+        actor_type="agent",
+        actor_id="fazer_agent_03",
+        action="AUTO_APPROVED",
+        payload_summary={"order_id": "ORD-FAZER-808", "total_eur": 1344.00}
+    ))
+    db.add(AuditLog(
         tenant_id="hotel_nordic_group",
         actor_type="system",
         actor_id="system_initializer",
         action="SYSTEM_INITIALIZED",
-        payload_summary={
-            "status": "ready",
-            "seed": "hotel_nordic_group",
-            "active_skus": ["VA-LF-MILK-10L", "VA-LF-MILK-12X1L"],
-            "hidden_roadmap_skus": ["VA-ROADMAP-Q4-PRO"],
-        },
-    )
-    db.add(init_log)
+        payload_summary={"status": "ready", "seed": "multi_customer_network"}
+    ))
 
     db.commit()

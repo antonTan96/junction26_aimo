@@ -7,7 +7,7 @@ from fastapi.responses import FileResponse
 from .config import settings
 from .database import engine, Base, SessionLocal
 from .seed import seed_database
-from .routes import tools, orders, policies, demo, agent
+from .routes import tools, orders, policies, demo, agent, admin
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -43,6 +43,7 @@ app.include_router(orders.router, prefix=settings.API_V1_STR)
 app.include_router(policies.router, prefix=settings.API_V1_STR)
 app.include_router(demo.router, prefix=settings.API_V1_STR)
 app.include_router(agent.router, prefix=settings.API_V1_STR)
+app.include_router(admin.router, prefix=settings.API_V1_STR)
 
 @app.get("/api")
 def api_status():

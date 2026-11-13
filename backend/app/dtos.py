@@ -86,6 +86,7 @@ class TenantPolicyDTO(BaseModel):
 class AgentRunRequest(BaseModel):
     prompt: str = Field(..., description="Buyer instruction, e.g. I need 1,000 litres of lactose-free milk by Monday")
     mode: str = Field(default="deterministic", description="'deterministic' or 'live'")
+    tenant_id: Optional[str] = Field(default="hotel_nordic_group", description="Customer tenant ID")
     po_reference: Optional[str] = None
 
 class AgentStepTrace(BaseModel):
