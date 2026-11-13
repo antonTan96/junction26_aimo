@@ -35,12 +35,15 @@ const API_BASE = '/api/v1';
 export default function App() {
   // Port Detection: Port 3000 = Buyer Portal, Port 8000 = AimoGate Wholesaler Tower
   const currentPort = typeof window !== 'undefined' ? window.location.port : '3000';
-  const isPort8000 = currentPort === '8000';
-  const initialPortal = isPort8000 ? 'aimogate' : 'buyer';
-  const [activePortal, setActivePortal] = useState(initialPortal);
+  const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+  const portalParam = urlParams?.get('portal');
+  const tenantParam = urlParams?.get('tenant');
+
+  // Dedicated Port Isolation: Port 8000 is Wholesaler Dashboard, Port 3000 is Buyer Portal
+  const activePortal = portalParam || (currentPort === '8000' ? 'aimogate' : 'buyer');
 
   // Customer / Tenant Selection
-  const [selectedTenant, setSelectedTenant] = useState('hotel_nordic_group');
+  const [selectedTenant, setSelectedTenant] = useState(tenantParam || 'hotel_nordic_group');
   const [customers, setCustomers] = useState([]);
   const [networkOverview, setNetworkOverview] = useState(null);
 
@@ -295,53 +298,42 @@ export default function App() {
       {/* Primary Top Header */}
       <header className="border-b border-slate-800 bg-slate-900/90 backdrop-blur sticky top-0 z-40 px-6 py-2.5">
         <div className="flex flex-wrap items-center justify-between gap-4">
-          {/* Logo & Portal Switcher */}
-          <div className="flex items-center gap-5">
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 via-indigo-600 to-sky-500 flex items-center justify-center shadow-lg shadow-blue-500/20">
+          {/* Dedicated Branding (No Tab Switching) */}
+          <div className="flex items-center gap-3">
+            <div
+              className={`w-9 h-9 rounded-xl flex items-center justify-center shadow-lg ${
+                activePortal === 'buyer'
+                  ? 'bg-gradient-to-br from-blue-600 via-indigo-600 to-sky-500 shadow-blue-500/20'
+                  : 'bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 shadow-indigo-500/20'
+              }`}
+            >
+              {activePortal === 'buyer' ? (
+                <Bot className="w-5 h-5 text-white" />
+              ) : (
                 <Shield className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="font-extrabold text-base tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
-                    AimoGate
-                  </span>
-                  <span className="text-[11px] px-2 py-0.5 rounded-full font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                    Valio Aimo
-                  </span>
-                </div>
-                <p className="text-[11px] text-slate-400">Zero-Trust B2B Trade & Governance Gateway</p>
-              </div>
+              )}
             </div>
-
-            {/* Portal Navigation Tabs */}
-            <nav className="flex items-center bg-slate-800/90 border border-slate-700/80 rounded-lg p-0.5 text-xs">
-              <button
-                onClick={() => setActivePortal('buyer')}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-md font-semibold transition ${
-                  activePortal === 'buyer'
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                <Bot className="w-4 h-4" />
-                <span>Buyer Portal (Agent & Orders)</span>
-              </button>
-              <button
-                onClick={() => setActivePortal('aimogate')}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-md font-semibold transition ${
-                  activePortal === 'aimogate'
-                    ? 'bg-indigo-600 text-white shadow-sm'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                <Activity className="w-4 h-4" />
-                <span>AimoGate Monitoring Dashboard</span>
-                {networkOverview?.pending_approvals_count > 0 && (
-                  <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
-                )}
-              </button>
-            </nav>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-extrabold text-base tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
+                  {activePortal === 'buyer' ? 'Buyer Procurement Desk' : 'AimoGate Monitoring Tower'}
+                </span>
+                <span
+                  className={`text-[10px] px-2 py-0.5 rounded-full font-semibold border ${
+                    activePortal === 'buyer'
+                      ? 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                      : 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'
+                  }`}
+                >
+                  {activePortal === 'buyer' ? 'Buyer Side • Port 3000' : 'Valio Aimo Wholesaler • Port 8000'}
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400">
+                {activePortal === 'buyer'
+                  ? 'Autonomous Purchasing Agent Configuration & Approval Desk'
+                  : 'Multi-Customer Autonomous Trade & Policy Firewall Monitoring'}
+              </p>
+            </div>
           </div>
 
           {/* Right Controls: Customer Selector, Live Status, Reset */}
@@ -931,16 +923,15 @@ export default function App() {
                     </div>
                   </div>
 
-                  <button
-                    onClick={() => {
-                      setSelectedTenant(c.tenant_id);
-                      setActivePortal('buyer');
-                    }}
-                    className="w-full mt-1 bg-slate-800 hover:bg-blue-600 text-slate-200 hover:text-white text-[11px] font-medium py-1.5 px-2 rounded flex items-center justify-center gap-1 transition"
+                  <a
+                    href={`http://localhost:3000?tenant=${c.tenant_id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full mt-1 bg-slate-800 hover:bg-blue-600 text-slate-200 hover:text-white text-[11px] font-medium py-1.5 px-2 rounded flex items-center justify-center gap-1 transition text-center"
                   >
-                    <span>Inspect Buyer Agent</span>
-                    <ArrowRight className="w-3 h-3" />
-                  </button>
+                    <span>Open in Buyer Portal (Port 3000)</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
                 </div>
               ))}
             </div>
